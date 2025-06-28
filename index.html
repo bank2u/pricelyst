@@ -37,17 +37,20 @@
             box-shadow: 0 10px 25px -5px rgba(34, 197, 94, 0.2), 0 8px 10px -6px rgba(34, 197, 94, 0.2);
         }
         .best-value-label {
+            position: absolute;
+            top: 1.5rem; /* p-6 */
+            right: 1.5rem; /* p-6 */
             visibility: hidden;
             opacity: 0;
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
             transform: translateY(-5px);
-            display: inline-block;
             background-color: #22c55e;
             color: white;
             padding: 4px 10px;
             border-radius: 99px;
             font-size: 0.8rem;
             font-weight: 700;
+            z-index: 10;
         }
         .is-best-value .best-value-label {
             visibility: visible;
@@ -80,7 +83,7 @@
         .header-color-bar {
             height: 5px;
             width: 100px;
-            margin: 1rem auto 0;
+            margin: 0.75rem auto 0;
             border-radius: 99px;
             background-image: linear-gradient(to right, #34d399, #facc15, #38bdf8);
         }
@@ -102,6 +105,9 @@
         .form-field.has-icon {
              padding-left: 2.25rem;
         }
+        .result-box.is-best-value-bg {
+            background-color: #dcfce7; /* green-100 */
+        }
     </style>
 </head>
 <body class="text-gray-800">
@@ -112,8 +118,8 @@
             <h1 id="app-title" class="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight flex items-center justify-center gap-3">
                 <!-- App name injected by JS -->
             </h1>
+            <p class="mt-2 text-sm text-gray-600 max-w-2xl mx-auto">Quick price comparison for smarter buying decisions.</p>
             <div class="header-color-bar"></div>
-            <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">Quick price comparison for smarter buying decisions.</p>
         </header>
 
         <main id="product-list" class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -175,21 +181,19 @@
                 card.dataset.id = id;
                 
                 card.innerHTML = `
-                    <div class="flex justify-between items-start">
+                    <span class="best-value-label"><i class="fa-solid fa-star fa-xs mr-2"></i><span class="label-text">Best Deal</span></span>
+                    <div class="flex justify-between items-start mb-4">
                         <input type="text" id="name-${id}" class="text-xl font-bold bg-transparent focus:bg-gray-100 rounded p-1 -m-1 w-2/3 outline-none focus:ring-2 focus:ring-green-300" placeholder="${placeholder}">
                         <button class="remove-btn text-gray-400 hover:text-red-500 hover:bg-red-100 w-8 h-8 rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                    <div id="best-deal-label-container-${id}" class="h-8 mt-1 mb-2">
-                        <span class="best-value-label"><i class="fa-solid fa-star fa-xs mr-2"></i><span class="label-text">Best Deal</span></span>
                     </div>
                     <div class="grid grid-cols-2 gap-6">
                         <div class="input-group">
                             <span class="input-icon text-gray-400">฿</span>
-                            <input type="number" id="price-${id}" min="0" class="form-field has-icon text-gray-700" placeholder="Price">
+                            <input type="text" inputmode="decimal" pattern="[0-9.]*" id="price-${id}" class="form-field has-icon text-gray-700" placeholder="Price">
                         </div>
                         <div class="input-group">
                             <i class="input-icon fa-solid fa-box text-gray-400"></i>
-                            <input type="number" id="quantity-${id}" min="0" class="form-field has-icon text-gray-700" placeholder="Quantity">
+                            <input type="text" inputmode="decimal" pattern="[0-9.]*" id="quantity-${id}" class="form-field has-icon text-gray-700" placeholder="Quantity">
                         </div>
                     </div>
                     <div class="mt-4">
@@ -200,8 +204,8 @@
                             <optgroup label="Length"><option value="cm">cm</option><option value="m">m</option><option value="in">inch</option><option value="ft">foot</option></optgroup>
                         </select>
                     </div>
-                    <div class="mt-6 h-20 flex flex-col items-center justify-center bg-sky-50 rounded-xl text-center">
-                        <span id="result-${id}" class="text-3xl font-bold text-gray-800"></span>
+                    <div id="result-box-${id}" class="result-box mt-4 h-16 flex flex-col items-center justify-center bg-sky-50 rounded-xl text-center transition-colors">
+                        <span id="result-${id}" class="text-2xl font-bold text-gray-800"></span>
                         <span id="result-label-${id}" class="text-sm text-gray-500"></span>
                     </div>
                 `;
@@ -306,8 +310,11 @@
                     const resultEl = document.getElementById(`result-${p.id}`);
                     const resultLabelEl = document.getElementById(`result-label-${p.id}`);
                     const labelText = p.card.querySelector('.label-text');
+                    const resultBox = document.getElementById(`result-box-${p.id}`);
+
 
                     p.card.classList.remove('is-best-value');
+                    resultBox.classList.remove('is-best-value-bg');
 
                     if (shouldShowResults && p.pricePerBaseUnit !== null) {
                         const currentUnitType = getUnitType(p.unit);
@@ -323,6 +330,7 @@
                         const isBest = allBestProducts.some(best => best.id === p.id);
                         if (isBest) {
                             p.card.classList.add('is-best-value');
+                            resultBox.classList.add('is-best-value-bg');
                             labelText.textContent = allBestProducts.length > 1 ? "Tied for Best Deal" : "Best Deal";
                         }
                     } else {
@@ -373,9 +381,9 @@
              */
             const getUnitType = (unit) => {
                 if (!unit) return null;
-                return Object.keys(unitTypes).find(type => type.includes(unit));
+                return Object.keys(unitTypes).find(type => unitTypes[type].includes(unit));
             };
-
+            
             /**
              * Initializes the application by setting dynamic content and attaching event listeners.
              */
