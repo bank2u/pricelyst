@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#f0f9ff">
+    <!-- Favicon -->
+    <link rel="icon" href="icons/icon-48x48.png">
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+
+    <title>Production Ready</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f9ff; /* sky-50 */
+        }
+        .product-card {
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            background-color: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            border-top: 5px solid transparent;
+        }
+        .product-card.is-best-value {
+            transform: translateY(-8px);
+            border-top-color: #22c55e;
+            box-shadow: 0 10px 25px -5px rgba(34, 197, 94, 0.2), 0 8px 10px -6px rgba(34, 197, 94, 0.2);
+        }
+        .best-value-label {
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            transform: translateY(-5px);
+            display: inline-block;
+            background-color: #22c55e;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .is-best-value .best-value-label {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .unit-select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%239ca3af' class='w-6 h-6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' /%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1.25em 1.25em;
+        }
+        .input-group {
+            position: relative;
+        }
+        .input-icon {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            padding-left: 0.5rem;
+            color: #9ca3af;
+            font-size: 0.9rem;
+        }
+        .header-color-bar {
+            height: 5px;
+            width: 100px;
+            margin: 1rem auto 0;
+            border-radius: 99px;
+            background-image: linear-gradient(to right, #34d399, #facc15, #38bdf8);
+        }
+        *:focus {
+            outline: none;
+        }
+        .form-field {
+            background-color: transparent;
+            border: none;
+            border-bottom: 2px solid #e5e7eb; /* gray-200 */
+            border-radius: 0; /* Important for the line look */
+            padding: 0.5rem 0.5rem;
+            transition: border-color 0.2s ease-in-out;
+            width: 100%;
+        }
+        .form-field:focus {
+            border-bottom-color: #22c55e; /* green-500 */
+        }
+        .form-field.has-icon {
+             padding-left: 2.25rem;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="app" class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+
+        <header class="text-center mb-10">
+            <h1 id="app-title" class="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight flex items-center justify-center gap-3">
+                <!-- App name injected by JS -->
+            </h1>
+            <div class="header-color-bar"></div>
+            <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">Quick price comparison for smarter buying decisions.</p>
+        </header>
+
+        <main id="product-list" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Product cards will be dynamically inserted here -->
+        </main>
+
+        <div class="mt-10 flex items-center justify-center">
+            <button id="addProductBtn" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-300 transform hover:scale-105 flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i>
+                Add Product
+            </button>
+        </div>
+
+        <footer class="mt-12 text-center">
+            <button id="resetBtn" class="text-gray-500 hover:text-gray-700 hover:bg-gray-200 font-semibold py-2 px-4 rounded-full transition-colors flex items-center gap-2 mx-auto">
+                 <i class="fa-solid fa-arrow-rotate-left"></i>
+                Start Over
+            </button>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- App Configuration ---
+            const appName = "Pricelyst";
+
+            // --- DOM Elements ---
+            const productList = document.getElementById('product-list');
+            const addProductBtn = document.getElementById('addProductBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const appTitle = document.getElementById('app-title');
+
+            // --- Application State & Configuration ---
+            let products = []; // Array to hold the state of each product card.
+            const unitTypes = { 
+                'volume': ['ml', 'L'],
+                'weight': ['g', 'kg', 'oz', 'lb'],
+                'length': ['cm', 'm', 'in', 'ft'],
+            };
+            const conversionFactors = { 
+                'ml': 1, 'L': 1000,
+                'g': 1, 'kg': 1000, 'oz': 28.3495, 'lb': 453.592,
+                'cm': 1, 'm': 100, 'in': 2.54, 'ft': 30.48,
+            };
+            const unitIcons = { 'volume': '💧', 'weight': '⚖️', 'length': '📏', 'unitless': '📦' };
+
+            // --- Core Functions ---
+
+            /**
+             * Creates a new product card element and adds it to the DOM.
+             * @param {number} id - The unique ID for the new product.
+             * @param {string} placeholder - The placeholder text for the name input.
+             * @returns {HTMLElement} - The newly created card element.
+             */
+            const createProductCard = (id, placeholder) => {
+                const card = document.createElement('div');
+                card.className = 'product-card p-6';
+                card.dataset.id = id;
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <input type="text" id="name-${id}" class="text-xl font-bold bg-transparent focus:bg-gray-100 rounded p-1 -m-1 w-2/3 outline-none focus:ring-2 focus:ring-green-300" placeholder="${placeholder}">
+                        <button class="remove-btn text-gray-400 hover:text-red-500 hover:bg-red-100 w-8 h-8 rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="best-deal-label-container-${id}" class="h-8 mt-1 mb-2">
+                        <span class="best-value-label"><i class="fa-solid fa-star fa-xs mr-2"></i><span class="label-text">Best Deal</span></span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="input-group">
+                            <span class="input-icon text-gray-400">฿</span>
+                            <input type="number" id="price-${id}" min="0" class="form-field has-icon text-gray-700" placeholder="Price">
+                        </div>
+                        <div class="input-group">
+                            <i class="input-icon fa-solid fa-box text-gray-400"></i>
+                            <input type="number" id="quantity-${id}" min="0" class="form-field has-icon text-gray-700" placeholder="Quantity">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <select id="unit-${id}" class="unit-select form-field text-gray-700">
+                            <option value="">Unitless (compare by item)</option>
+                            <optgroup label="Volume"><option value="ml">ml</option><option value="L">L</option></optgroup>
+                            <optgroup label="Weight"><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option></optgroup>
+                            <optgroup label="Length"><option value="cm">cm</option><option value="m">m</option><option value="in">inch</option><option value="ft">foot</option></optgroup>
+                        </select>
+                    </div>
+                    <div class="mt-6 h-20 flex flex-col items-center justify-center bg-sky-50 rounded-xl text-center">
+                        <span id="result-${id}" class="text-3xl font-bold text-gray-800"></span>
+                        <span id="result-label-${id}" class="text-sm text-gray-500"></span>
+                    </div>
+                `;
+
+                productList.appendChild(card);
+                
+                // Attach event listeners directly after creation.
+                card.addEventListener('input', () => handleInputChange(id));
+                card.querySelector('.remove-btn').addEventListener('click', () => removeProduct(id));
+
+                return card;
+            };
+
+            /**
+             * Adds a new product to the state and updates the UI.
+             */
+            const addProduct = () => {
+                const id = Date.now() + Math.random();
+                const placeholder = `Product ${String.fromCharCode(65 + products.length)}`;
+                const newProduct = { 
+                    id: id, 
+                    card: createProductCard(id, placeholder),
+                    price: null,
+                    quantity: null,
+                    unit: null,
+                    pricePerBaseUnit: null
+                };
+                products.push(newProduct);
+
+                updateRemoveButtons();
+                updatePlaceholders();
+                comparePrices();
+            };
+            
+            /**
+             * Removes a product from the state and UI.
+             * @param {number} id - The ID of the product to remove.
+             */
+            const removeProduct = (id) => {
+                const productIndex = products.findIndex(p => p.id === id);
+                if (productIndex > -1) {
+                    products[productIndex].card.remove();
+                    products.splice(productIndex, 1);
+                    
+                    comparePrices();
+                    updateRemoveButtons();
+                    updatePlaceholders();
+                }
+            };
+            
+            /**
+             * Handles changes to any input field on a product card and triggers a recalculation.
+             * @param {number} id - The ID of the product that was updated.
+             */
+            const handleInputChange = (id) => {
+                const product = products.find(p => p.id === id);
+                if (!product) return;
+                
+                product.price = parseFloat(document.getElementById(`price-${id}`).value) || null;
+                product.quantity = parseFloat(document.getElementById(`quantity-${id}`).value) || null;
+                product.unit = document.getElementById(`unit-${id}`).value || null;
+                
+                comparePrices();
+            };
+
+            /**
+             * The main calculation and UI update function. It determines prices per unit,
+             * finds the best deal(s), and updates the display accordingly.
+             */
+            const comparePrices = () => {
+                // 1. Determine the active unit type for comparison (e.g., 'weight' or 'volume').
+                const activeUnitType = products.map(p => getUnitType(p.unit)).find(type => type) || null;
+                
+                // 2. Calculate price per base unit for each product.
+                let validProductCount = 0;
+                products.forEach(p => {
+                    p.pricePerBaseUnit = null; // Reset first
+                    const currentUnitType = getUnitType(p.unit);
+
+                    if (p.price > 0 && p.quantity > 0) {
+                        // Check if the product is comparable
+                        if ((!activeUnitType && !currentUnitType) || (activeUnitType && currentUnitType === activeUnitType)) {
+                            const baseUnitValue = p.quantity * (conversionFactors[p.unit] || 1);
+                            p.pricePerBaseUnit = p.price / baseUnitValue;
+                            validProductCount++;
+                        }
+                    }
+                });
+
+                // 3. Decide if results should be shown (at least 2 valid products).
+                const shouldShowResults = validProductCount >= 2;
+
+                // 4. Find the best price and all products that match it.
+                let bestPrice = null;
+                if (shouldShowResults) {
+                     bestPrice = Math.min(...products.filter(p => p.pricePerBaseUnit !== null).map(p => p.pricePerBaseUnit));
+                }
+                const allBestProducts = bestPrice === null ? [] : products.filter(p => p.pricePerBaseUnit === bestPrice);
+
+                // 5. Update the UI for each card.
+                products.forEach(p => {
+                    const resultEl = document.getElementById(`result-${p.id}`);
+                    const resultLabelEl = document.getElementById(`result-label-${p.id}`);
+                    const labelText = p.card.querySelector('.label-text');
+
+                    p.card.classList.remove('is-best-value');
+
+                    if (shouldShowResults && p.pricePerBaseUnit !== null) {
+                        const currentUnitType = getUnitType(p.unit);
+                        if (!currentUnitType) { // Unitless
+                           resultEl.textContent = `฿${p.pricePerBaseUnit.toFixed(2)}`;
+                           resultLabelEl.textContent = `per item ${unitIcons['unitless']}`;
+                        } else { // Unit-based
+                            const baseUnitLabels = { 'volume': 'ml', 'weight': 'gram', 'length': 'cm'};
+                            resultEl.textContent = `฿${p.pricePerBaseUnit.toFixed(4)}`;
+                            resultLabelEl.textContent = `per ${baseUnitLabels[currentUnitType]} ${unitIcons[currentUnitType]}`;
+                        }
+                        
+                        const isBest = allBestProducts.some(best => best.id === p.id);
+                        if (isBest) {
+                            p.card.classList.add('is-best-value');
+                            labelText.textContent = allBestProducts.length > 1 ? "Tied for Best Deal" : "Best Deal";
+                        }
+                    } else {
+                        resultEl.textContent = '';
+                        resultLabelEl.textContent = '';
+                    }
+                });
+            };
+
+            // --- UI Helper Functions ---
+
+            /**
+             * Updates name placeholders sequentially (Product A, Product B, etc.).
+             */
+            const updatePlaceholders = () => {
+                products.forEach((p, index) => {
+                    const nameInput = document.getElementById(`name-${p.id}`);
+                    if (nameInput) {
+                        nameInput.placeholder = `Product ${String.fromCharCode(65 + index)}`;
+                    }
+                });
+            };
+
+            /**
+             * Shows or hides the remove button based on the number of products.
+             */
+            const updateRemoveButtons = () => {
+                const canRemove = products.length > 2;
+                products.forEach(p => {
+                    p.card.querySelector('.remove-btn').style.visibility = canRemove ? 'visible' : 'hidden';
+                });
+            };
+            
+            /**
+             * Resets the entire application to its initial state.
+             */
+            const resetApp = () => {
+                productList.innerHTML = '';
+                products = [];
+                addProduct(); 
+                addProduct();
+            };
+
+            /**
+             * Helper to find the type of a given unit (e.g., 'ml' -> 'volume').
+             * @param {string} unit - The unit to check.
+             * @returns {string|null} - The type of the unit or null.
+             */
+            const getUnitType = (unit) => {
+                if (!unit) return null;
+                return Object.keys(unitTypes).find(type => type.includes(unit));
+            };
+
+            /**
+             * Initializes the application by setting dynamic content and attaching event listeners.
+             */
+            const initializeApp = () => {
+                document.title = `${appName}`;
+                appTitle.innerHTML = `<i class="fa-solid fa-tags text-green-500"></i>${appName}`;
+                
+                addProductBtn.addEventListener('click', addProduct);
+                resetBtn.addEventListener('click', resetApp);
+                
+                // PWA Service Worker Registration
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('/service-worker.js').then(registration => {
+                            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        }, err => {
+                            console.log('ServiceWorker registration failed: ', err);
+                        });
+                    });
+                }
+
+                resetApp(); // Set up the initial two cards.
+            }
+
+            // --- Initialization ---
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
