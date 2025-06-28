@@ -81,8 +81,8 @@
             font-size: 0.9rem;
         }
         .header-color-bar {
-            height: 5px;
-            width: 100px;
+            height: 4px;
+            width: 150px;
             margin: 0.75rem auto 0;
             border-radius: 99px;
             background-image: linear-gradient(to right, #34d399, #facc15, #38bdf8);
@@ -142,305 +142,195 @@
 
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- App Configuration ---
-            const appName = "Pricelyst";
+    <!-- Main Application Script -->
+    <script type="module">
+        import { getUnitType, calculateComparison, unitIcons } from './logic.js';
 
-            // --- DOM Elements ---
-            const productList = document.getElementById('product-list');
-            const addProductBtn = document.getElementById('addProductBtn');
-            const resetBtn = document.getElementById('resetBtn');
-            const appTitle = document.getElementById('app-title');
+        // =================================================================
+        // --- App Configuration & State ---
+        // =================================================================
+        const appName = "Pricelyst";
+        let products = []; // Array to hold the state of each product card.
 
-            // --- Application State & Configuration ---
-            let products = []; // Array to hold the state of each product card.
-            const unitTypes = { 
-                'volume': ['ml', 'L'],
-                'weight': ['g', 'kg', 'oz', 'lb'],
-                'length': ['cm', 'm', 'in', 'ft'],
-            };
-            const conversionFactors = { 
-                'ml': 1, 'L': 1000,
-                'g': 1, 'kg': 1000, 'oz': 28.3495, 'lb': 453.592,
-                'cm': 1, 'm': 100, 'in': 2.54, 'ft': 30.48,
-            };
-            const unitIcons = { 'volume': '💧', 'weight': '⚖️', 'length': '📏', 'unitless': '📦' };
+        // =================================================================
+        // --- DOM Elements ---
+        // =================================================================
+        const productList = document.getElementById('product-list');
+        const addProductBtn = document.getElementById('addProductBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const appTitle = document.getElementById('app-title');
 
-            // --- Core Functions ---
+        // =================================================================
+        // --- DOM Manipulation & UI Updates ---
+        // =================================================================
+        
+        /**
+         * Updates the entire UI based on the current state of the `products` array.
+         */
+        const renderUI = () => {
+            const productData = products.map(p => ({
+                id: p.id,
+                price: p.price,
+                quantity: p.quantity,
+                unit: p.unit
+            }));
+            
+            const { results, bestProductIds, shouldShowResults } = calculateComparison(productData);
 
-            /**
-             * Creates a new product card element and adds it to the DOM.
-             * @param {number} id - The unique ID for the new product.
-             * @param {string} placeholder - The placeholder text for the name input.
-             * @returns {HTMLElement} - The newly created card element.
-             */
-            const createProductCard = (id, placeholder) => {
-                const card = document.createElement('div');
-                card.className = 'product-card p-6';
-                card.dataset.id = id;
+            results.forEach(p => {
+                const resultEl = document.getElementById(`result-${p.id}`);
+                const resultLabelEl = document.getElementById(`result-label-${p.id}`);
+                const resultBox = document.getElementById(`result-box-${p.id}`);
+                const card = document.querySelector(`[data-id='${p.id}']`);
+                const bestValueLabel = card.querySelector('.best-value-label');
+                const warningEl = document.getElementById(`warning-${p.id}`);
                 
-                card.innerHTML = `
-                    <span class="best-value-label"><i class="fa-solid fa-star fa-xs mr-2"></i><span class="label-text">Best Deal</span></span>
-                    <div class="flex justify-between items-start mb-1">
-                        <input type="text" id="name-${id}" class="text-xl font-bold bg-transparent focus:bg-gray-100 rounded p-1 -m-1 w-2/3 outline-none focus:ring-2 focus:ring-green-300" placeholder="${placeholder}">
-                        <button class="remove-btn text-gray-400 hover:text-red-500 hover:bg-red-100 w-8 h-8 rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                    <div id="warning-${id}" class="hidden mt-2 p-2 bg-yellow-100 text-yellow-800 text-xs rounded-lg flex items-center gap-2">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Incompatible unit type for comparison.</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-6 mt-3">
-                        <div class="input-group">
-                            <span class="input-icon text-gray-400">฿</span>
-                            <input type="text" inputmode="decimal" pattern="[0-9.]*" id="price-${id}" class="form-field has-icon text-gray-700" placeholder="Price">
-                        </div>
-                        <div class="input-group">
-                            <i id="quantity-icon-${id}" class="input-icon fa-solid fa-box text-gray-400"></i>
-                            <input type="text" inputmode="decimal" pattern="[0-9.]*" id="quantity-${id}" class="form-field has-icon text-gray-700" placeholder="Quantity">
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <select id="unit-${id}" class="unit-select form-field text-gray-700">
-                            <option value="">Unitless (compare by item)</option>
-                            <optgroup label="Volume" data-unit-type="volume"><option value="ml">ml</option><option value="L">L</option></optgroup>
-                            <optgroup label="Weight" data-unit-type="weight"><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option></optgroup>
-                            <optgroup label="Length" data-unit-type="length"><option value="cm">cm</option><option value="m">m</option><option value="in">inch</option><option value="ft">foot</option></optgroup>
-                        </select>
-                    </div>
-                    <div id="result-box-${id}" class="result-box mt-4 h-16 flex flex-col items-center justify-center bg-sky-50 rounded-xl text-center transition-colors">
-                        <span id="result-${id}" class="text-2xl font-bold text-gray-800"></span>
-                        <span id="result-label-${id}" class="text-sm text-gray-500"></span>
-                    </div>
-                `;
+                const isBest = bestProductIds.includes(p.id);
 
-                productList.appendChild(card);
-                
-                // Attach event listeners directly after creation.
-                card.addEventListener('input', () => handleInputChange(id));
-                card.querySelector('.remove-btn').addEventListener('click', () => removeProduct(id));
+                card.classList.toggle('is-best-value', isBest);
+                resultBox.classList.toggle('is-best-value-bg', isBest);
+                warningEl.classList.toggle('hidden', p.isComparable);
 
-                return card;
-            };
+                if (shouldShowResults && p.pricePerBaseUnit !== null) {
+                    const currentUnitType = getUnitType(p.unit);
+                    if (!currentUnitType) {
+                        resultEl.textContent = `฿${p.pricePerBaseUnit.toFixed(2)}`;
+                        resultLabelEl.textContent = `per item ${unitIcons['unitless']}`;
+                    } else {
+                        const baseUnitLabels = { 'volume': 'ml', 'weight': 'gram', 'length': 'cm'};
+                        resultEl.textContent = `฿${p.pricePerBaseUnit.toFixed(4)}`;
+                        resultLabelEl.textContent = `per ${baseUnitLabels[currentUnitType]} ${unitIcons[currentUnitType]}`;
+                    }
+                    
+                    if (isBest) {
+                        bestValueLabel.querySelector('.label-text').textContent = bestProductIds.length > 1 ? "Tied for Best Deal" : "Best Deal";
+                    }
+                } else {
+                    resultEl.textContent = '';
+                    resultLabelEl.textContent = '';
+                }
+            });
+        };
+        
+        const handleInputChange = (id) => {
+            const product = products.find(p => p.id === id);
+            if (!product) return;
+            
+            product.price = parseFloat(document.getElementById(`price-${id}`).value) || null;
+            product.quantity = parseFloat(document.getElementById(`quantity-${id}`).value) || null;
+            product.unit = document.getElementById(`unit-${id}`).value || null;
+            
+            updateQuantityIcon(product.id, getUnitType(product.unit));
+            renderUI();
+        };
 
-            /**
-             * Adds a new product to the state and updates the UI.
-             */
-            const addProduct = () => {
-                const id = Date.now() + Math.random();
-                const placeholder = `Product ${String.fromCharCode(65 + products.length)}`;
-                const newProduct = { 
-                    id: id, 
-                    card: createProductCard(id, placeholder),
-                    price: null,
-                    quantity: null,
-                    unit: null,
-                    pricePerBaseUnit: null
-                };
-                products.push(newProduct);
+        const createProductCard = (id, placeholder) => {
+            const card = document.createElement('div');
+            card.className = 'product-card p-6';
+            card.dataset.id = id;
+            
+            card.innerHTML = `
+                <span class="best-value-label"><i class="fa-solid fa-star fa-xs mr-2"></i><span class="label-text">Best Deal</span></span>
+                <div class="flex justify-between items-start mb-1">
+                    <input type="text" id="name-${id}" class="text-xl font-bold bg-transparent focus:bg-gray-100 rounded p-1 -m-1 w-2/3 outline-none focus:ring-2 focus:ring-green-300" placeholder="${placeholder}">
+                    <button class="remove-btn text-gray-400 hover:text-red-500 hover:bg-red-100 w-8 h-8 rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="warning-${id}" class="hidden mt-2 p-2 bg-yellow-100 text-yellow-800 text-xs rounded-lg flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Incompatible unit type.</span>
+                </div>
+                <div class="grid grid-cols-2 gap-6 mt-3">
+                    <div class="input-group">
+                        <span class="input-icon text-gray-400">฿</span>
+                        <input type="text" inputmode="decimal" pattern="[0-9.]*" id="price-${id}" class="form-field has-icon text-gray-700" placeholder="Price">
+                    </div>
+                    <div class="input-group">
+                        <i id="quantity-icon-${id}" class="input-icon fa-solid fa-box text-gray-400"></i>
+                        <input type="text" inputmode="decimal" pattern="[0-9.]*" id="quantity-${id}" class="form-field has-icon text-gray-700" placeholder="Quantity">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <select id="unit-${id}" class="unit-select form-field text-gray-700">
+                        <option value="">Unitless (compare by item)</option>
+                        <optgroup label="Volume" data-unit-type="volume"><option value="ml">ml</option><option value="L">L</option></optgroup>
+                        <optgroup label="Weight" data-unit-type="weight"><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option></optgroup>
+                        <optgroup label="Length" data-unit-type="length"><option value="cm">cm</option><option value="m">m</option><option value="in">inch</option><option value="ft">foot</option></optgroup>
+                    </select>
+                </div>
+                <div id="result-box-${id}" class="result-box mt-4 h-16 flex flex-col items-center justify-center bg-sky-50 rounded-xl text-center transition-colors">
+                    <span id="result-${id}" class="text-2xl font-bold text-gray-800"></span>
+                    <span id="result-label-${id}" class="text-sm text-gray-500"></span>
+                </div>
+            `;
+            productList.appendChild(card);
+            card.addEventListener('input', () => handleInputChange(id));
+            card.querySelector('.remove-btn').addEventListener('click', () => removeProduct(id));
+            return card;
+        };
 
+        const addProduct = () => {
+            const id = Date.now() + Math.random();
+            const placeholder = `Product ${String.fromCharCode(65 + products.length)}`;
+            const newProduct = { id, card: createProductCard(id, placeholder), price: null, quantity: null, unit: null, pricePerBaseUnit: null };
+            products.push(newProduct);
+            updateRemoveButtons();
+            updatePlaceholders();
+            renderUI();
+        };
+        
+        const removeProduct = (id) => {
+            const productIndex = products.findIndex(p => p.id === id);
+            if (productIndex > -1) {
+                products[productIndex].card.remove();
+                products.splice(productIndex, 1);
                 updateRemoveButtons();
                 updatePlaceholders();
-                comparePrices();
-            };
-            
-            /**
-             * Removes a product from the state and UI.
-             * @param {number} id - The ID of the product to remove.
-             */
-            const removeProduct = (id) => {
-                const productIndex = products.findIndex(p => p.id === id);
-                if (productIndex > -1) {
-                    products[productIndex].card.remove();
-                    products.splice(productIndex, 1);
-                    
-                    comparePrices();
-                    updateRemoveButtons();
-                    updatePlaceholders();
-                }
-            };
-            
-            /**
-             * Handles changes to any input field on a product card and triggers a recalculation.
-             * @param {number} id - The ID of the product that was updated.
-             */
-            const handleInputChange = (id) => {
-                const product = products.find(p => p.id === id);
-                if (!product) return;
-                
-                product.price = parseFloat(document.getElementById(`price-${id}`).value) || null;
-                product.quantity = parseFloat(document.getElementById(`quantity-${id}`).value) || null;
-                product.unit = document.getElementById(`unit-${id}`).value || null;
-                
-                comparePrices();
-            };
-
-            /**
-             * The main calculation and UI update function. It determines prices per unit,
-             * finds the best deal(s), and updates the display accordingly.
-             */
-            const comparePrices = () => {
-                // 1. Determine the active unit type for comparison (e.g., 'weight' or 'volume').
-                const activeUnitType = products.map(p => getUnitType(p.unit)).find(type => type) || null;
-                
-                // 2. Calculate price per base unit for each product.
-                let validProductCount = 0;
-                products.forEach(p => {
-                    p.pricePerBaseUnit = null; // Reset first
-                    const currentUnitType = getUnitType(p.unit);
-                    const warningEl = document.getElementById(`warning-${p.id}`);
-                    
-                    updateQuantityIcon(p.id, currentUnitType);
-                    
-                    // Show warning if unit types are mixed
-                    if (activeUnitType && currentUnitType && currentUnitType !== activeUnitType) {
-                        warningEl.classList.remove('hidden');
-                    } else {
-                        warningEl.classList.add('hidden');
-                    }
-
-                    if (p.price > 0 && p.quantity > 0) {
-                        // Check if the product is comparable
-                        if ((!activeUnitType && !currentUnitType) || (activeUnitType && currentUnitType === activeUnitType)) {
-                            const baseUnitValue = p.quantity * (conversionFactors[p.unit] || 1);
-                            p.pricePerBaseUnit = p.price / baseUnitValue;
-                            validProductCount++;
-                        }
-                    }
-                });
-
-                // 3. Decide if results should be shown (at least 2 valid products).
-                const shouldShowResults = validProductCount >= 2;
-
-                // 4. Find the best price and all products that match it.
-                let bestPrice = null;
-                if (shouldShowResults) {
-                     bestPrice = Math.min(...products.filter(p => p.pricePerBaseUnit !== null).map(p => p.pricePerBaseUnit));
-                }
-                const allBestProducts = bestPrice === null ? [] : products.filter(p => p.pricePerBaseUnit === bestPrice);
-
-                // 5. Update the UI for each card.
-                products.forEach(p => {
-                    const resultEl = document.getElementById(`result-${p.id}`);
-                    const resultLabelEl = document.getElementById(`result-label-${p.id}`);
-                    const resultBox = document.getElementById(`result-box-${p.id}`);
-                    const bestValueLabel = p.card.querySelector('.best-value-label');
-
-                    p.card.classList.remove('is-best-value');
-                    resultBox.classList.remove('is-best-value-bg');
-
-                    if (shouldShowResults && p.pricePerBaseUnit !== null) {
-                        const currentUnitType = getUnitType(p.unit);
-                        if (!currentUnitType) { // Unitless
-                           resultEl.textContent = `฿${p.pricePerBaseUnit.toFixed(2)}`;
-                           resultLabelEl.textContent = `per item ${unitIcons['unitless']}`;
-                        } else { // Unit-based
-                            const baseUnitLabels = { 'volume': 'ml', 'weight': 'gram', 'length': 'cm'};
-                            resultEl.textContent = `฿${p.pricePerBaseUnit.toFixed(4)}`;
-                            resultLabelEl.textContent = `per ${baseUnitLabels[currentUnitType]} ${unitIcons[currentUnitType]}`;
-                        }
-                        
-                        const isBest = allBestProducts.some(best => best.id === p.id);
-                        if (isBest) {
-                            p.card.classList.add('is-best-value');
-                            resultBox.classList.add('is-best-value-bg');
-                            bestValueLabel.querySelector('.label-text').textContent = allBestProducts.length > 1 ? "Tied for Best Deal" : "Best Deal";
-                        }
-                    } else {
-                        resultEl.textContent = '';
-                        resultLabelEl.textContent = '';
-                    }
-                });
-            };
-
-            // --- UI Helper Functions ---
-
-             /**
-             * Updates the quantity icon based on the selected unit type.
-             * @param {number} id - The ID of the product card.
-             * @param {string|null} unitType - The type of the unit (e.g., 'volume').
-             */
-            const updateQuantityIcon = (id, unitType) => {
-                const iconEl = document.getElementById(`quantity-icon-${id}`);
-                const iconClasses = {
-                    volume: 'fa-droplet',
-                    weight: 'fa-weight-hanging',
-                    length: 'fa-ruler-horizontal',
-                    default: 'fa-box'
-                };
-                const newIcon = iconClasses[unitType] || iconClasses.default;
-                iconEl.className = `input-icon fa-solid ${newIcon} text-gray-400`;
-            };
-
-            /**
-             * Updates name placeholders sequentially (Product A, Product B, etc.).
-             */
-            const updatePlaceholders = () => {
-                products.forEach((p, index) => {
-                    const nameInput = document.getElementById(`name-${p.id}`);
-                    if (nameInput) {
-                        nameInput.placeholder = `Product ${String.fromCharCode(65 + index)}`;
-                    }
-                });
-            };
-
-            /**
-             * Shows or hides the remove button based on the number of products.
-             */
-            const updateRemoveButtons = () => {
-                const canRemove = products.length > 2;
-                products.forEach(p => {
-                    p.card.querySelector('.remove-btn').style.visibility = canRemove ? 'visible' : 'hidden';
-                });
-            };
-            
-            /**
-             * Resets the entire application to its initial state.
-             */
-            const resetApp = () => {
-                productList.innerHTML = '';
-                products = [];
-                addProduct(); 
-                addProduct();
-            };
-
-            /**
-             * Helper to find the type of a given unit (e.g., 'ml' -> 'volume').
-             * @param {string} unit - The unit to check.
-             * @returns {string|null} - The type of the unit or null.
-             */
-            const getUnitType = (unit) => {
-                if (!unit) return null;
-                return Object.keys(unitTypes).find(type => unitTypes[type].includes(unit));
-            };
-            
-            /**
-             * Initializes the application by setting dynamic content and attaching event listeners.
-             */
-            const initializeApp = () => {
-                document.title = `${appName}`;
-                appTitle.innerHTML = `<i class="fa-solid fa-tags text-green-500"></i>${appName}`;
-                
-                addProductBtn.addEventListener('click', addProduct);
-                resetBtn.addEventListener('click', resetApp);
-                
-                // PWA Service Worker Registration
-                if ('serviceWorker' in navigator) {
-                    window.addEventListener('load', () => {
-                        navigator.serviceWorker.register('/service-worker.js').then(registration => {
-                            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                        }, err => {
-                            console.log('ServiceWorker registration failed: ', err);
-                        });
-                    });
-                }
-
-                resetApp(); // Set up the initial two cards.
+                renderUI();
             }
+        };
 
-            // --- Initialization ---
-            initializeApp();
-        });
+        const updateQuantityIcon = (id, unitType) => {
+            const iconEl = document.getElementById(`quantity-icon-${id}`);
+            const iconClasses = { volume: 'fa-droplet', weight: 'fa-weight-hanging', length: 'fa-ruler-horizontal', default: 'fa-box' };
+            iconEl.className = `input-icon fa-solid ${iconClasses[unitType] || iconClasses.default} text-gray-400`;
+        };
+
+        const updatePlaceholders = () => {
+            products.forEach((p, index) => {
+                const nameInput = document.getElementById(`name-${p.id}`);
+                if (nameInput) nameInput.placeholder = `Product ${String.fromCharCode(65 + index)}`;
+            });
+        };
+
+        const updateRemoveButtons = () => {
+            const canRemove = products.length > 2;
+            products.forEach(p => p.card.querySelector('.remove-btn').style.visibility = canRemove ? 'visible' : 'hidden');
+        };
+        
+        const resetApp = () => {
+            productList.innerHTML = '';
+            products = [];
+            addProduct(); 
+            addProduct();
+        };
+        
+        const initializeApp = () => {
+            document.title = `${appName}`;
+            appTitle.innerHTML = `<i class="fa-solid fa-tags text-green-500"></i>${appName}`;
+            
+            addProductBtn.addEventListener('click', addProduct);
+            resetBtn.addEventListener('click', resetApp);
+            
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/service-worker.js').catch(err => console.log('SW registration failed:', err));
+                });
+            }
+            resetApp();
+        }
+
+        // --- Initialization ---
+        initializeApp();
     </script>
-</body>
+    
 </html>
