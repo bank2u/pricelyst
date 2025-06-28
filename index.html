@@ -182,26 +182,30 @@
                 
                 card.innerHTML = `
                     <span class="best-value-label"><i class="fa-solid fa-star fa-xs mr-2"></i><span class="label-text">Best Deal</span></span>
-                    <div class="flex justify-between items-start mb-4">
+                    <div class="flex justify-between items-start mb-1">
                         <input type="text" id="name-${id}" class="text-xl font-bold bg-transparent focus:bg-gray-100 rounded p-1 -m-1 w-2/3 outline-none focus:ring-2 focus:ring-green-300" placeholder="${placeholder}">
                         <button class="remove-btn text-gray-400 hover:text-red-500 hover:bg-red-100 w-8 h-8 rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
                     </div>
-                    <div class="grid grid-cols-2 gap-6">
+                    <div id="warning-${id}" class="hidden mt-2 p-2 bg-yellow-100 text-yellow-800 text-xs rounded-lg flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Incompatible unit type for comparison.</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 mt-3">
                         <div class="input-group">
                             <span class="input-icon text-gray-400">฿</span>
                             <input type="text" inputmode="decimal" pattern="[0-9.]*" id="price-${id}" class="form-field has-icon text-gray-700" placeholder="Price">
                         </div>
                         <div class="input-group">
-                            <i class="input-icon fa-solid fa-box text-gray-400"></i>
+                            <i id="quantity-icon-${id}" class="input-icon fa-solid fa-box text-gray-400"></i>
                             <input type="text" inputmode="decimal" pattern="[0-9.]*" id="quantity-${id}" class="form-field has-icon text-gray-700" placeholder="Quantity">
                         </div>
                     </div>
                     <div class="mt-4">
                         <select id="unit-${id}" class="unit-select form-field text-gray-700">
                             <option value="">Unitless (compare by item)</option>
-                            <optgroup label="Volume"><option value="ml">ml</option><option value="L">L</option></optgroup>
-                            <optgroup label="Weight"><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option></optgroup>
-                            <optgroup label="Length"><option value="cm">cm</option><option value="m">m</option><option value="in">inch</option><option value="ft">foot</option></optgroup>
+                            <optgroup label="Volume" data-unit-type="volume"><option value="ml">ml</option><option value="L">L</option></optgroup>
+                            <optgroup label="Weight" data-unit-type="weight"><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option></optgroup>
+                            <optgroup label="Length" data-unit-type="length"><option value="cm">cm</option><option value="m">m</option><option value="in">inch</option><option value="ft">foot</option></optgroup>
                         </select>
                     </div>
                     <div id="result-box-${id}" class="result-box mt-4 h-16 flex flex-col items-center justify-center bg-sky-50 rounded-xl text-center transition-colors">
@@ -284,6 +288,16 @@
                 products.forEach(p => {
                     p.pricePerBaseUnit = null; // Reset first
                     const currentUnitType = getUnitType(p.unit);
+                    const warningEl = document.getElementById(`warning-${p.id}`);
+                    
+                    updateQuantityIcon(p.id, currentUnitType);
+                    
+                    // Show warning if unit types are mixed
+                    if (activeUnitType && currentUnitType && currentUnitType !== activeUnitType) {
+                        warningEl.classList.remove('hidden');
+                    } else {
+                        warningEl.classList.add('hidden');
+                    }
 
                     if (p.price > 0 && p.quantity > 0) {
                         // Check if the product is comparable
@@ -309,9 +323,8 @@
                 products.forEach(p => {
                     const resultEl = document.getElementById(`result-${p.id}`);
                     const resultLabelEl = document.getElementById(`result-label-${p.id}`);
-                    const labelText = p.card.querySelector('.label-text');
                     const resultBox = document.getElementById(`result-box-${p.id}`);
-
+                    const bestValueLabel = p.card.querySelector('.best-value-label');
 
                     p.card.classList.remove('is-best-value');
                     resultBox.classList.remove('is-best-value-bg');
@@ -331,7 +344,7 @@
                         if (isBest) {
                             p.card.classList.add('is-best-value');
                             resultBox.classList.add('is-best-value-bg');
-                            labelText.textContent = allBestProducts.length > 1 ? "Tied for Best Deal" : "Best Deal";
+                            bestValueLabel.querySelector('.label-text').textContent = allBestProducts.length > 1 ? "Tied for Best Deal" : "Best Deal";
                         }
                     } else {
                         resultEl.textContent = '';
@@ -341,6 +354,23 @@
             };
 
             // --- UI Helper Functions ---
+
+             /**
+             * Updates the quantity icon based on the selected unit type.
+             * @param {number} id - The ID of the product card.
+             * @param {string|null} unitType - The type of the unit (e.g., 'volume').
+             */
+            const updateQuantityIcon = (id, unitType) => {
+                const iconEl = document.getElementById(`quantity-icon-${id}`);
+                const iconClasses = {
+                    volume: 'fa-droplet',
+                    weight: 'fa-weight-hanging',
+                    length: 'fa-ruler-horizontal',
+                    default: 'fa-box'
+                };
+                const newIcon = iconClasses[unitType] || iconClasses.default;
+                iconEl.className = `input-icon fa-solid ${newIcon} text-gray-400`;
+            };
 
             /**
              * Updates name placeholders sequentially (Product A, Product B, etc.).
